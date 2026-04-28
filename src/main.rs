@@ -3,9 +3,9 @@ use anyhow::{Context, Result};
 use bytes::BytesMut;
 use clap::Parser;
 use prost::Message;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use tokio::time::{sleep, Duration, Instant};
-use tracing::{info, warn}; // 🔥 CERRAHİ: Kullanılmayan 'error' importu silindi
+use tracing::{info, warn};
 
 pub mod sentinel_market {
     include!(concat!(env!("OUT_DIR"), "/sentinel.market.v1.rs"));
@@ -37,8 +37,23 @@ struct Args {
     max_mps: u32,
 }
 
-/// Binance standart Tick CSV formatı:
-/// agg_trade_id, price, quantity, first_trade_id, last_trade_id, timestamp, is_buyer_maker, is_best_match
+// 🔥 CERRAHİ: Binance'in büyük harfli "True/False" verisini Rust'a uyumlu hale getiren özel ayrıştırıcı
+fn deserialize_binance_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    match s.to_lowercase().as_str() {
+        "true" | "t" | "1" => Ok(true),
+        "false" | "f" | "0" => Ok(false),
+        _ => Err(serde::de::Error::custom(format!(
+            "expected boolean, got {}",
+            s
+        ))),
+    }
+}
+
+/// Binance standart Tick CSV formatı
 #[derive(Debug, Deserialize)]
 struct HistoricalTick {
     #[serde(rename = "price")]
@@ -47,7 +62,10 @@ struct HistoricalTick {
     quantity: f64,
     #[serde(rename = "time")]
     timestamp: i64,
-    #[serde(rename = "is_buyer_maker")]
+    #[serde(
+        rename = "is_buyer_maker",
+        deserialize_with = "deserialize_binance_bool"
+    )]
     is_buyer_maker: bool,
 }
 
@@ -92,8 +110,8 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     let mut cycle_time = Instant::now();
 
-    let batch_size = args.max_mps / 10; // Saniyede 10 kez uyuma/dengeleme kontrolü
-    let sleep_duration = Duration::from_millis(100); // 100ms cycle
+    let batch_size = args.max_mps / 10;
+    let sleep_duration = Duration::from_millis(100);
 
     info!(
         "🚀 ENJEKSİYON BAŞLIYOR... (Limit: {} msgs/sec)",
@@ -113,7 +131,6 @@ async fn main() -> Result<()> {
 
                 payload_buffer.clear();
                 if agg_trade.encode(&mut payload_buffer).is_ok() {
-                    // freeze() -> O(1) maliyetle buffer'ı Bytes'a dönüştürür
                     let _ = nats_client
                         .publish(subject.clone(), payload_buffer.split().freeze())
                         .await;
@@ -132,13 +149,12 @@ async fn main() -> Result<()> {
                     cycle_time = Instant::now();
                 }
 
-                if msg_count.is_multiple_of(1_000_000) {
+                if msg_count.is_multiple_of(100_000) {
                     let total_sec = start_time.elapsed().as_secs();
-                    // 🔥 CERRAHİ: Clippy kurallarına uygun güvenli bölüm (Checked Division)
                     let avg_speed = msg_count.checked_div(total_sec).unwrap_or(0);
                     info!(
-                        "⏱️ {} Milyon Tick işlendi. Ortalama Hız: {} tick/sn",
-                        msg_count / 1_000_000,
+                        "⏱️ {} Bin Tick işlendi. Ortalama Hız: {} tick/sn",
+                        msg_count / 1_000,
                         avg_speed
                     );
                 }
@@ -150,7 +166,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    // NATS buffer'ında kalan son mesajların gitmesini bekle
     nats_client.flush().await?;
 
     let total_time = start_time.elapsed().as_secs_f64();
