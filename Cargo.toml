@@ -1,0 +1,27 @@
+[package]
+name = "sentinel-backtest"
+version = "1.0.0"
+edition = "2021"
+description = "VQ-Capital HFT Historical Data Injector (Time Machine)"
+
+[dependencies]
+# Asenkron Runtime & Hata Yönetimi
+tokio = { version = "1.36", features = ["full", "time"] }
+anyhow = "1.0"
+
+# CLI & Loglama
+clap = { version = "4.4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# NATS & Protobuf (Hot-Path İletişim)
+async-nats = "0.34"
+prost = "0.12"
+bytes = "1.5"
+
+# Offline Veri Okuma
+csv = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+
+[build-dependencies]
+prost-build = "0.12"
