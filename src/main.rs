@@ -17,8 +17,8 @@ use sentinel_market::AggTrade;
 #[command(author, version, about = "VQ-Capital HFT Backtest Injector", long_about = None)]
 struct Args {
     /// İşlenecek geçmiş borsa verisi (CSV)
-    #[arg(short, long)]
-    csv_file: String,
+    #[arg(short, long, default_value = "../sentinel-data/datasets/BTCUSDT_1D.csv")]
+    csv_file_path: String,
 
     /// Hangi sembol olarak sisteme enjekte edilecek? (Örn: BTCUSDT)
     #[arg(short, long, default_value = "BTCUSDT")]
@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     info!("🦅 VQ-Capital Backtest Injector (Zaman Makinesi) Başlatılıyor...");
-    info!("📂 Veri Kaynağı: {}", args.csv_file);
+    info!("📂 Veri Kaynağı: {}", args.csv_file_path);
     info!("🎯 Hedef Sembol: {}", args.symbol);
 
     let nats_client = async_nats::connect(&args.nats_url)
@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
     // CSV'yi belleğe yüklemek (RAM Allocation) YASAKTIR. Streaming okuma yapıyoruz.
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
-        .from_path(&args.csv_file)
+        .from_path(&args.csv_file_path)
         .context("CSV dosyası okunamadı. Dosya yolunu kontrol edin.")?;
 
     // Zero-Allocation Prensibi: Her döngüde yeni byte tahsis etmek yerine,
