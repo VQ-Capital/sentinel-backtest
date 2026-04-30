@@ -17,7 +17,11 @@ use sentinel_market::AggTrade;
 #[command(author, version, about = "VQ-Capital HFT Backtest Injector", long_about = None)]
 struct Args {
     /// İşlenecek geçmiş borsa verisi (CSV)
-    #[arg(short, long, default_value = "../sentinel-data/datasets/BTCUSDT_1D.csv")]
+    #[arg(
+        short,
+        long,
+        default_value = "../sentinel-data/datasets/BTCUSDT_1D.csv"
+    )]
     csv_file_path: String,
 
     /// Hangi sembol olarak sisteme enjekte edilecek? (Örn: BTCUSDT)
