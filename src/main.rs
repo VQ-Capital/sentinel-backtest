@@ -20,7 +20,7 @@ struct Args {
     #[arg(
         short,
         long,
-        default_value = "../sentinel-data/datasets/BTCUSDT_1D.csv"
+        default_value = "../sentinel-data/datasets/BTCUSDT_03_2026.csv"
     )]
     csv_file_path: String,
 
